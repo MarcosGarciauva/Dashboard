@@ -7,6 +7,23 @@
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
+    <section class="auth-screen" id="authScreen">
+      <form class="auth-card" id="loginForm">
+        <img class="auth-avatar" src="assets/profile.jpg" alt="Foto de Marcos Kaleb Garcia Ramirez" />
+        <p class="eyebrow">Dashboard personal</p>
+        <h1>Iniciar sesión</h1>
+        <p class="auth-copy">Entra con el Gmail que creaste en Supabase.</p>
+        <label>Correo
+          <input id="loginEmail" type="email" autocomplete="email" required placeholder="tu correo de Gmail" />
+        </label>
+        <label>Contraseña
+          <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Contraseña" />
+        </label>
+        <button class="primary-button" type="submit">Entrar</button>
+        <p class="auth-message" id="authMessage"></p>
+      </form>
+    </section>
+
     <div class="app-shell">
       <header class="topbar">
         <div class="profile-block">
@@ -30,6 +47,8 @@
             <span id="themeIcon">☾</span>
             <span id="themeLabel">Oscuro</span>
           </button>
+          <button class="theme-toggle" id="logoutButton" type="button">Salir</button>
+          <span class="sync-status" id="syncStatus">Local</span>
         </div>
       </header>
 

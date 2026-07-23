@@ -14,6 +14,7 @@ import {
   WEEKDAYS
 } from "../lib/config.js";
 import { blankItem, createId, loadState, saveState as persistState } from "../lib/storage.js";
+import { clearSession, getStoredSession, loadCloudState, saveCloudState, signIn, signOut } from "../lib/supabase.js";
 import { setupPomodoro } from "../components/pomodoro.js";
 import { setupTheme } from "../hooks/useTheme.js";
 import { daysUntil, dateFromISO, formatDate, formatHours, minutesBetween, todayISO } from "../utils/dates.js";
@@ -24,10 +25,36 @@ export function initializeHome() {
   let state = loadState();
   let calendarCursor = new Date();
   let editor = null;
+  let session = getStoredSession();
+  let cloudReady = false;
+  let syncTimer = null;
   const theme = setupTheme(state, saveState);
 
   function saveState() {
     persistState(state);
+    scheduleCloudSave();
+  }
+
+  function setSyncStatus(text) {
+    document.querySelector("#syncStatus").textContent = text;
+  }
+
+  function scheduleCloudSave() {
+    if (!session || !cloudReady) {
+      setSyncStatus(session ? "Cargando" : "Local");
+      return;
+    }
+    clearTimeout(syncTimer);
+    setSyncStatus("Guardando...");
+    syncTimer = setTimeout(async () => {
+      try {
+        await saveCloudState(state, session);
+        setSyncStatus("Guardado");
+      } catch (error) {
+        setSyncStatus("Error al guardar");
+        console.error(error);
+      }
+    }, 500);
   }
 
   function autoSave() {
@@ -612,6 +639,28 @@ export function initializeHome() {
     calendarCursor.setMonth(calendarCursor.getMonth() + 1);
     renderCalendar();
   });
+  document.querySelector("#loginForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = document.querySelector("#loginEmail").value.trim();
+    const password = document.querySelector("#loginPassword").value;
+    const message = document.querySelector("#authMessage");
+    message.textContent = "Entrando...";
+    try {
+      session = await signIn(email, password);
+      message.textContent = "";
+      await bootCloudSession();
+    } catch (error) {
+      message.textContent = "No se pudo iniciar sesión. Revisa correo y contraseña.";
+      console.error(error);
+    }
+  });
+  document.querySelector("#logoutButton").addEventListener("click", async () => {
+    await signOut(session);
+    session = null;
+    cloudReady = false;
+    document.querySelector("#authScreen").classList.remove("hidden");
+    setSyncStatus("Local");
+  });
 
   setupPomodoro(state, () => {
     saveState();
@@ -628,4 +677,38 @@ export function initializeHome() {
   updateClock();
   fetchWeather();
   setInterval(updateClock, 1000);
+  bootCloudSession();
+
+  async function bootCloudSession() {
+    if (!session) {
+      document.querySelector("#authScreen").classList.remove("hidden");
+      setSyncStatus("Local");
+      return;
+    }
+    document.querySelector("#authScreen").classList.add("hidden");
+    setSyncStatus("Cargando...");
+    try {
+      const cloudState = await loadCloudState(session);
+      if (cloudState.__hasCloudData) {
+        delete cloudState.__hasCloudData;
+        Object.assign(state, cloudState);
+        persistState(state);
+      } else {
+        await saveCloudState(state, session);
+      }
+      cloudReady = true;
+      setSyncStatus("Guardado");
+      theme.applyTheme();
+      renderAll();
+      fetchWeather();
+    } catch (error) {
+      console.error(error);
+      clearSession();
+      session = null;
+      cloudReady = false;
+      document.querySelector("#authScreen").classList.remove("hidden");
+      document.querySelector("#authMessage").textContent = "No se pudo conectar con Supabase.";
+      setSyncStatus("Sin sesión");
+    }
+  }
 }
