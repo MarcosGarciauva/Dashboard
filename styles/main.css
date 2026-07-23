@@ -502,6 +502,24 @@ label {
   font-size: 2.25rem;
 }
 
+.pomodoro-meta {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 14px;
+  text-align: center;
+}
+
+.pomodoro-meta span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.pomodoro-meta select {
+  min-height: 38px;
+  text-align: center;
+}
+
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -555,6 +573,10 @@ label {
   padding: 15px;
 }
 
+.compact-subject-card {
+  min-height: 206px;
+}
+
 .subject-card::before,
 .timeline-item::before,
 .exam-item::before {
@@ -583,6 +605,23 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.subject-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.subject-summary span {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .subject-detail div {
@@ -628,6 +667,48 @@ label {
   min-height: 36px;
   padding-inline: 8px;
   font-size: 0.82rem;
+}
+
+.subject-detail-dialog {
+  max-height: min(82vh, 760px);
+  overflow: auto;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-grid div,
+.detail-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detail-grid span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.detail-section {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-section h3 {
+  margin-bottom: 0;
+}
+
+.detail-section p {
+  margin: 0;
+  color: var(--soft);
+  line-height: 1.45;
 }
 
 .linked-list,
@@ -864,6 +945,7 @@ dialog::backdrop {
   .stats-grid,
   .subjects-grid,
   .subject-detail,
+  .detail-grid,
   .quick-grid,
   .editor-fields {
     grid-template-columns: 1fr;

@@ -81,9 +81,9 @@
               <h2>Pomodoro</h2>
             </div>
             <div class="mode-switch" role="group" aria-label="Modo Pomodoro">
-              <button data-mode="focus" class="active">25</button>
-              <button data-mode="short">5</button>
-              <button data-mode="long">15</button>
+              <button data-mode="focus45">45</button>
+              <button data-mode="focus25" class="active">25</button>
+              <button data-mode="focus15">15</button>
             </div>
           </div>
           <div class="timer-ring">
@@ -92,6 +92,10 @@
               <circle id="timerProgress" cx="60" cy="60" r="52"></circle>
             </svg>
             <strong id="timerDisplay">25:00</strong>
+          </div>
+          <div class="pomodoro-meta">
+            <span id="timerPhase">Enfoque</span>
+            <select id="pomodoroSubject" aria-label="Materia para registrar Pomodoro"></select>
           </div>
           <div class="button-row">
             <button class="primary-button" id="timerStart">Iniciar</button>
@@ -206,6 +210,21 @@
         </div>
         <div class="editor-fields" id="editorFields"></div>
         <p class="autosave-note">Los cambios se guardan automáticamente.</p>
+      </div>
+    </dialog>
+
+    <dialog id="subjectDetailDialog">
+      <div class="dialog-card subject-detail-dialog">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Materia</p>
+            <h2 id="subjectDetailTitle">Detalle</h2>
+          </div>
+          <button class="icon-button" id="closeSubjectDetail" aria-label="Cerrar" title="Cerrar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="subjectDetailContent"></div>
       </div>
     </dialog>
 

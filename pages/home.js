@@ -133,7 +133,7 @@ export function initializeHome() {
       const completedTasks = tasks.filter((item) => item.status === "completada").length;
       const progress = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : null;
       return `
-        <article class="subject-card" style="--accent:${subject.color || COLORS[0]}">
+        <article class="subject-card compact-subject-card" style="--accent:${subject.color || COLORS[0]}">
           <div class="subject-top">
             <div>
               <h3 class="subject-title">${subject.name || EMPTY}</h3>
@@ -141,26 +141,70 @@ export function initializeHome() {
             </div>
             ${actionButtons("subject", subject.id)}
           </div>
-          <div class="subject-detail">
-            <div><span>Profesor</span>${subject.teacher || EMPTY}</div>
-            <div><span>Aula</span>${subject.room || EMPTY}</div>
-            <div><span>Horarios</span>${schedules.length ? `${schedules.length} registrados` : NO_SCHEDULE}</div>
-            <div><span>Tareas</span>${tasks.length ? `${completedTasks}/${tasks.length} completadas` : NO_TASKS}</div>
+          <div class="subject-summary">
+            <span>${schedules.length ? `${schedules.length} horarios` : "Sin horario"}</span>
+            <span>${tasks.length ? `${tasks.length} tareas` : "Sin tareas"}</span>
+            <span>${exams.length ? `${exams.length} exámenes` : "Sin exámenes"}</span>
           </div>
-          ${progress === null ? emptyMarkup("No hay progreso registrado.") : `<div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><p class="mini-muted">${progress}% por tareas completadas</p>`}
+          ${progress === null ? `<p class="mini-muted">No hay progreso registrado.</p>` : `<div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><p class="mini-muted">${progress}% por tareas completadas</p>`}
           <div class="quick-row">
+            <button class="ghost-button" data-view-subject="${subject.id}">Ver</button>
             <button class="ghost-button" data-edit="subject" data-id="${subject.id}">Apuntes</button>
-            <button class="ghost-button" data-edit="subject" data-id="${subject.id}">Recursos</button>
             <button class="ghost-button" data-add-study="${subject.id}">Estudio</button>
-          </div>
-          <div class="linked-list">
-            ${schedules.slice(0, 2).map((item) => `<span>${DAY_OPTIONS.find(([value]) => value === String(item.day))?.[1] || EMPTY} ${item.start || ""}${item.end ? `-${item.end}` : ""}</span>`).join("")}
-            ${exams.slice(0, 2).map((item) => `<span>Examen: ${formatDate(item.date)} ${item.time || ""}</span>`).join("")}
-            ${tasks.slice(0, 2).map((item) => `<span>Tarea: ${item.title || EMPTY}</span>`).join("")}
           </div>
         </article>
       `;
     }).join("");
+  }
+
+  function renderPomodoroSubjects() {
+    const select = document.querySelector("#pomodoroSubject");
+    const currentValue = state.settings.pomodoroSubjectId || select.value || "";
+    select.innerHTML = `<option value="">Registrar sin materia</option>${state.subjects.map((subject) => `<option value="${subject.id}" ${currentValue === subject.id ? "selected" : ""}>${subject.name || EMPTY}</option>`).join("")}`;
+  }
+
+  function openSubjectDetail(id) {
+    const subject = subjectById(id);
+    if (!subject) return;
+    const schedules = state.schedules.filter((item) => item.subjectId === id);
+    const exams = state.exams.filter((item) => item.subjectId === id);
+    const tasks = state.tasks.filter((item) => item.subjectId === id);
+    const studies = state.studyLogs.filter((item) => item.subjectId === id);
+    document.querySelector("#subjectDetailTitle").textContent = subject.name || EMPTY;
+    document.querySelector("#subjectDetailContent").innerHTML = `
+      <div class="detail-grid">
+        <div><span>Profesor</span><strong>${subject.teacher || EMPTY}</strong></div>
+        <div><span>Aula</span><strong>${subject.room || EMPTY}</strong></div>
+        <div><span>Créditos</span><strong>${subject.credits || EMPTY}</strong></div>
+        <div><span>Estudio registrado</span><strong>${formatHours(studies.reduce((sum, log) => sum + Number(log.minutes || 0), 0))}</strong></div>
+      </div>
+      <div class="detail-section">
+        <h3>Horarios</h3>
+        ${schedules.length ? schedules.map((item) => `<p>${DAY_OPTIONS.find(([value]) => value === String(item.day))?.[1] || EMPTY} · ${item.start || "--:--"}${item.end ? `-${item.end}` : ""} · ${item.room || "Sin salón"}</p>`).join("") : emptyMarkup(NO_SCHEDULE)}
+      </div>
+      <div class="detail-section">
+        <h3>Exámenes</h3>
+        ${exams.length ? exams.map((item) => `<p>${formatDate(item.date)} ${item.time || ""} · ${item.examType || "Sin tipo"} · ${item.place || "Sin lugar"}</p>`).join("") : emptyMarkup(NO_EXAMS)}
+      </div>
+      <div class="detail-section">
+        <h3>Tareas</h3>
+        ${tasks.length ? tasks.map((item) => `<p>${item.title || EMPTY} · ${item.dueDate ? formatDate(item.dueDate) : "Sin fecha"} · ${item.status || "Sin estado"}</p>`).join("") : emptyMarkup(NO_TASKS)}
+      </div>
+      <div class="detail-section">
+        <h3>Apuntes</h3>
+        ${subject.notes ? `<p>${subject.notes}</p>` : emptyMarkup()}
+      </div>
+      <div class="detail-section">
+        <h3>Recursos</h3>
+        ${subject.resources ? `<p>${subject.resources}</p>` : emptyMarkup()}
+      </div>
+      <div class="button-row">
+        <button class="primary-button" data-edit="subject" data-id="${subject.id}">Editar materia</button>
+        <button class="ghost-button" data-add-study="${subject.id}">Registrar estudio</button>
+      </div>
+    `;
+    bindActionButtons();
+    document.querySelector("#subjectDetailDialog").showModal();
   }
 
   function renderTimeline() {
@@ -384,6 +428,7 @@ export function initializeHome() {
   function renderAll() {
     renderQuickLinks();
     renderSubjects();
+    renderPomodoroSubjects();
     renderTimeline();
     renderTasks();
     renderExams();
@@ -399,7 +444,10 @@ export function initializeHome() {
       button.onclick = () => openEditor(button.dataset.add);
     });
     document.querySelectorAll("[data-edit]").forEach((button) => {
-      button.onclick = () => openEditor(button.dataset.edit, button.dataset.id);
+      button.onclick = () => {
+        closeSubjectDetailIfOpen();
+        openEditor(button.dataset.edit, button.dataset.id);
+      };
     });
     document.querySelectorAll("[data-delete]").forEach((button) => {
       button.onclick = () => deleteItem(button.dataset.delete, button.dataset.id);
@@ -408,7 +456,13 @@ export function initializeHome() {
       button.onclick = () => duplicateItem(button.dataset.duplicate, button.dataset.id);
     });
     document.querySelectorAll("[data-add-study]").forEach((button) => {
-      button.onclick = () => openEditor("study", null, { subjectId: button.dataset.addStudy });
+      button.onclick = () => {
+        closeSubjectDetailIfOpen();
+        openEditor("study", null, { subjectId: button.dataset.addStudy });
+      };
+    });
+    document.querySelectorAll("[data-view-subject]").forEach((button) => {
+      button.onclick = () => openSubjectDetail(button.dataset.viewSubject);
     });
     document.querySelectorAll("[data-goal-check]").forEach((checkbox) => {
       checkbox.onchange = () => {
@@ -418,6 +472,11 @@ export function initializeHome() {
         autoSave();
       };
     });
+  }
+
+  function closeSubjectDetailIfOpen() {
+    const dialog = document.querySelector("#subjectDetailDialog");
+    if (dialog?.open) dialog.close();
   }
 
   function openEditor(type, id = null, preset = {}) {
@@ -538,6 +597,13 @@ export function initializeHome() {
     event.preventDefault();
     closeEditor();
   });
+  document.querySelector("#closeSubjectDetail").addEventListener("click", () => {
+    document.querySelector("#subjectDetailDialog").close();
+  });
+  document.querySelector("#subjectDetailDialog").addEventListener("cancel", (event) => {
+    event.preventDefault();
+    document.querySelector("#subjectDetailDialog").close();
+  });
   document.querySelector("#prevMonth").addEventListener("click", () => {
     calendarCursor.setMonth(calendarCursor.getMonth() - 1);
     renderCalendar();
@@ -547,7 +613,16 @@ export function initializeHome() {
     renderCalendar();
   });
 
-  setupPomodoro(state, saveState);
+  setupPomodoro(state, () => {
+    saveState();
+    renderStudy();
+  }, {
+    onFocusComplete(log) {
+      state.studyLogs.push({ id: createId("study"), ...log });
+      saveState();
+      renderStudy();
+    }
+  });
   theme.applyTheme();
   renderAll();
   updateClock();
