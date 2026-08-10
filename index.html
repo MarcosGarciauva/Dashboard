@@ -114,6 +114,7 @@
           </div>
           <div class="pomodoro-meta">
             <span id="timerPhase">Enfoque</span>
+            <span id="timerTarget">Listo para iniciar</span>
             <select id="pomodoroSubject" aria-label="Materia para registrar Pomodoro"></select>
           </div>
           <div class="button-row">
@@ -198,7 +199,11 @@
               <h2 id="calendarTitle"></h2>
             </div>
             <div class="button-row">
-              <button class="primary-button" data-add="event">Agregar</button>
+              <button class="primary-button" data-add="schedule">Horario</button>
+              <button class="ghost-button" data-add="subject">Materia</button>
+              <button class="ghost-button" data-add="exam">Examen</button>
+              <button class="ghost-button" data-add="task">Tarea</button>
+              <button class="ghost-button" data-add="event">Evento</button>
               <button class="icon-button" id="prevMonth" aria-label="Mes anterior" title="Mes anterior">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
               </button>
@@ -209,7 +214,7 @@
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
           <div class="calendar-events">
-            <h3>Eventos y prácticas</h3>
+            <h3>Agenda del mes</h3>
             <div class="compact-list" id="eventList"></div>
           </div>
         </section>

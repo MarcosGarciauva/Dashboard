@@ -882,6 +882,9 @@ label {
 }
 
 .calendar-cell {
+  display: grid;
+  align-content: start;
+  gap: 7px;
   min-height: 126px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -898,25 +901,70 @@ label {
 }
 
 .day-number {
-  display: block;
-  margin-bottom: 8px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  margin: 0;
   color: var(--soft);
+  background: transparent;
   font-weight: 900;
+  cursor: pointer;
+}
+
+.day-number:hover {
+  color: #07111f;
+  background: var(--gold);
+}
+
+.calendar-day-events {
+  display: grid;
+  gap: 5px;
 }
 
 .event-chip {
-  display: block;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
+  width: 100%;
   max-width: 100%;
-  margin-top: 5px;
+  border: 0;
   padding: 5px 7px;
   border-radius: 6px;
   color: #07111f;
   background: var(--event);
   font-size: 0.72rem;
   font-weight: 900;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.event-chip:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.chip-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.76;
+}
+
+.chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-empty {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 dialog {
@@ -1035,7 +1083,13 @@ dialog::backdrop {
   }
 
   .event-chip {
+    grid-template-columns: 1fr;
+    gap: 2px;
     padding-inline: 5px;
     font-size: 0.68rem;
+  }
+
+  .chip-time {
+    font-size: 0.64rem;
   }
 }

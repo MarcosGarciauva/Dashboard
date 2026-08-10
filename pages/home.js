@@ -14,7 +14,7 @@ import {
   WEEKDAYS
 } from "../lib/config.js";
 import { blankItem, createId, loadState, saveState as persistState } from "../lib/storage.js";
-import { clearSession, getStoredSession, loadCloudState, saveCloudState, signIn, signOut } from "../lib/supabase.js";
+import { clearSession, ensureSession, getStoredSession, loadCloudState, saveCloudState, signIn, signOut } from "../lib/supabase.js";
 import { setupPomodoro } from "../components/pomodoro.js";
 import { setupTheme } from "../hooks/useTheme.js";
 import { daysUntil, dateFromISO, formatDate, formatHours, minutesBetween, todayISO } from "../utils/dates.js";
@@ -48,6 +48,13 @@ export function initializeHome() {
     setSyncStatus("Guardando...");
     syncTimer = setTimeout(async () => {
       try {
+        session = await ensureSession(session);
+        if (!session) {
+          cloudReady = false;
+          document.querySelector("#authScreen").classList.remove("hidden");
+          setSyncStatus("Sin sesión");
+          return;
+        }
         await saveCloudState(state, session);
         setSyncStatus("Guardado");
       } catch (error) {
@@ -76,6 +83,26 @@ export function initializeHome() {
 
   function subjectColor(id, fallback = COLORS[0]) {
     return subjectById(id)?.color || fallback;
+  }
+
+  function linkedColor(type, item, fallback = COLORS[0]) {
+    if (item?.subjectId) return subjectColor(item.subjectId, item.color || fallback);
+    return item?.color || fallback;
+  }
+
+  function minutesFromTime(value, fallback = 1440) {
+    if (!value) return fallback;
+    const [hours = 0, minutes = 0] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function sortByDateTime(a, b) {
+    return `${a.date || "9999-12-31"}-${String(minutesFromTime(a.time)).padStart(4, "0")}`.localeCompare(`${b.date || "9999-12-31"}-${String(minutesFromTime(b.time)).padStart(4, "0")}`);
+  }
+
+  function eventTypeLabel(type) {
+    const labels = { exam: "Examen", task: "Tarea", class: "Clase", practice: "Práctica", event: "Evento" };
+    return labels[type] || "Evento";
   }
 
   function isMeaningful(type, item) {
@@ -251,7 +278,7 @@ export function initializeHome() {
       const end = item.end ? item.end.split(":").map(Number).reduce((h, m) => h * 60 + m) : start + 60;
       const active = start >= 0 && minutesNow >= start && minutesNow <= end;
       return `
-        <div class="timeline-item ${active ? "active" : ""}" style="--accent:${item.color || subjectColor(item.subjectId)}">
+        <div class="timeline-item ${active ? "active" : ""}" style="--accent:${linkedColor("schedule", item)}">
           <span class="timeline-time">${item.start || "--:--"}${item.end ? `-${item.end}` : ""}</span>
           <div>
             <p class="timeline-title">${subjectName(item.subjectId)}</p>
@@ -285,7 +312,7 @@ export function initializeHome() {
     document.querySelector("#examList").innerHTML = exams.length ? exams.map((exam) => {
       const remaining = daysUntil(exam.date);
       return `
-        <article class="exam-item" style="--accent:${exam.color || subjectColor(exam.subjectId)}">
+        <article class="exam-item" style="--accent:${linkedColor("exam", exam, "#ff8f7a")}">
           <div>
             <strong>${subjectName(exam.subjectId)}</strong>
             <span>${formatDate(exam.date, { day: "numeric", month: "long", year: "numeric" })}${exam.time ? ` · ${exam.time}` : ""}</span>
@@ -391,27 +418,70 @@ export function initializeHome() {
   function calendarEvents() {
     const events = [];
     state.exams.forEach((exam) => {
-      if (exam.date) events.push({ date: exam.date, title: `Examen · ${subjectName(exam.subjectId)}`, type: "exam", color: exam.color || subjectColor(exam.subjectId) });
+      if (exam.date) {
+        events.push({
+          id: exam.id,
+          sourceType: "exam",
+          date: exam.date,
+          time: exam.time || "",
+          title: subjectName(exam.subjectId),
+          type: "exam",
+          subtitle: exam.examType || exam.place || "Examen",
+          color: linkedColor("exam", exam, "#ff8f7a")
+        });
+      }
     });
     state.tasks.forEach((task) => {
-      if (task.dueDate) events.push({ date: task.dueDate, title: task.title || "Tarea", type: "task", color: "#ffd166" });
+      if (task.dueDate) {
+        events.push({
+          id: task.id,
+          sourceType: "task",
+          date: task.dueDate,
+          time: "",
+          title: task.title || "Tarea",
+          type: "task",
+          subtitle: subjectName(task.subjectId),
+          color: linkedColor("task", task, "#ffd166")
+        });
+      }
     });
     state.events.forEach((event) => {
-      if (event.date) events.push({ date: event.date, title: event.title || "Evento", type: event.eventType || "event", color: event.color || "#f7a8c4" });
+      if (event.date) {
+        events.push({
+          id: event.id,
+          sourceType: "event",
+          date: event.date,
+          time: event.time || "",
+          title: event.title || eventTypeLabel(event.eventType),
+          type: event.eventType || "event",
+          subtitle: event.place || event.description || eventTypeLabel(event.eventType),
+          color: event.color || "#f7a8c4"
+        });
+      }
     });
     const year = calendarCursor.getFullYear();
     const month = calendarCursor.getMonth();
     const last = new Date(year, month + 1, 0).getDate();
     state.schedules.forEach((schedule) => {
-      if (!schedule.day) return;
+      if (schedule.day === "" || schedule.day === null || schedule.day === undefined) return;
       for (let day = 1; day <= last; day += 1) {
         const date = new Date(year, month, day);
         if (String(date.getDay()) === String(schedule.day)) {
-          events.push({ date: date.toISOString().slice(0, 10), title: subjectName(schedule.subjectId), type: "class", color: schedule.color || subjectColor(schedule.subjectId) });
+          events.push({
+            id: schedule.id,
+            sourceType: "schedule",
+            date: date.toISOString().slice(0, 10),
+            time: schedule.start || "",
+            end: schedule.end || "",
+            title: subjectName(schedule.subjectId),
+            type: "class",
+            subtitle: schedule.room || "Clase",
+            color: linkedColor("schedule", schedule)
+          });
         }
       }
     });
-    return events;
+    return events.sort(sortByDateTime);
   }
 
   function renderCalendar() {
@@ -430,8 +500,15 @@ export function initializeHome() {
       const dayEvents = events.filter((event) => event.date === iso);
       cells.push(`
         <div class="calendar-cell ${date.getMonth() !== month ? "muted" : ""} ${iso === todayISO() ? "today" : ""}">
-          <span class="day-number">${date.getDate()}</span>
-          ${dayEvents.map((event) => `<span class="event-chip ${event.type}" style="--event:${event.color}">${event.title}</span>`).join("")}
+          <button class="day-number" data-calendar-add="${iso}" title="Agregar evento">${date.getDate()}</button>
+          <div class="calendar-day-events">
+            ${dayEvents.length ? dayEvents.map((event) => `
+              <button class="event-chip ${event.type}" data-calendar-edit="${event.sourceType}" data-id="${event.id}" style="--event:${event.color}" title="Editar ${eventTypeLabel(event.type)}">
+                <span class="chip-time">${event.time || "Todo el día"}${event.end ? `-${event.end}` : ""}</span>
+                <span class="chip-title">${event.title}</span>
+              </button>
+            `).join("") : `<span class="calendar-empty">Sin eventos</span>`}
+          </div>
         </div>
       `);
     }
@@ -439,17 +516,21 @@ export function initializeHome() {
   }
 
   function renderEvents() {
-    const events = [...state.events]
-      .sort((a, b) => `${a.date || "9999"}${a.time || ""}`.localeCompare(`${b.date || "9999"}${b.time || ""}`));
+    const year = calendarCursor.getFullYear();
+    const month = calendarCursor.getMonth();
+    const events = calendarEvents().filter((event) => {
+      const date = dateFromISO(event.date);
+      return date && date.getFullYear() === year && date.getMonth() === month;
+    });
     document.querySelector("#eventList").innerHTML = events.length ? events.map((event) => `
       <article class="list-card" style="--accent:${event.color || "#f7a8c4"}">
         <div>
           <strong>${event.title || EMPTY}</strong>
-          <span>${event.date ? formatDate(event.date) : "Sin fecha"}${event.time ? ` · ${event.time}` : ""} · ${event.eventType || "Evento"}</span>
+          <span>${formatDate(event.date)} · ${event.time || "Todo el día"}${event.end ? `-${event.end}` : ""} · ${event.subtitle || eventTypeLabel(event.type)}</span>
         </div>
-        ${actionButtons("event", event.id)}
+        ${actionButtons(event.sourceType, event.id, event.sourceType !== "schedule")}
       </article>
-    `).join("") : emptyMarkup("No hay eventos registrados.");
+    `).join("") : emptyMarkup("No hay información registrada.");
   }
 
   function renderAll() {
@@ -498,6 +579,12 @@ export function initializeHome() {
         goal.done = checkbox.checked;
         autoSave();
       };
+    });
+    document.querySelectorAll("[data-calendar-add]").forEach((button) => {
+      button.onclick = () => openEditor("event", null, { date: button.dataset.calendarAdd });
+    });
+    document.querySelectorAll("[data-calendar-edit]").forEach((button) => {
+      button.onclick = () => openEditor(button.dataset.calendarEdit, button.dataset.id);
     });
   }
 
@@ -574,8 +661,16 @@ export function initializeHome() {
         if (minutesInput && document.activeElement !== minutesInput) minutesInput.value = minutes;
       }
     }
-    if (editor.type === "schedule" && key === "subjectId" && !item.color) item.color = subjectColor(item.subjectId);
-    if (editor.type === "exam" && key === "subjectId" && !item.color) item.color = subjectColor(item.subjectId);
+    if (editor.type === "schedule" && key === "subjectId") item.color = subjectColor(item.subjectId, item.color || COLORS[0]);
+    if (editor.type === "exam" && key === "subjectId") item.color = subjectColor(item.subjectId, item.color || "#ff8f7a");
+    if (editor.type === "subject" && key === "color") {
+      state.schedules.forEach((schedule) => {
+        if (schedule.subjectId === item.id) schedule.color = item.color;
+      });
+      state.exams.forEach((exam) => {
+        if (exam.subjectId === item.id) exam.color = item.color;
+      });
+    }
     saveState();
     renderAll();
     if (editor.type === "location") fetchWeather();
@@ -688,6 +783,12 @@ export function initializeHome() {
     document.querySelector("#authScreen").classList.add("hidden");
     setSyncStatus("Cargando...");
     try {
+      session = await ensureSession(session);
+      if (!session) {
+        document.querySelector("#authScreen").classList.remove("hidden");
+        setSyncStatus("Sin sesión");
+        return;
+      }
       const cloudState = await loadCloudState(session);
       if (cloudState.__hasCloudData) {
         delete cloudState.__hasCloudData;
